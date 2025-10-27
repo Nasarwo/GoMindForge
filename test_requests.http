@@ -1,0 +1,117 @@
+### GoMindForge API Test Requests
+### Используйте этот файл с расширением REST Client для VS Code
+### Или импортируйте в Postman/Insomnia
+
+@baseUrl = http://localhost:8080
+@accessToken = ваш_access_token_здесь
+@refreshToken = ваш_refresh_token_здесь
+
+### 1. Регистрация пользователя
+POST {{baseUrl}}/api/v1/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### 2. Вход в систему
+POST {{baseUrl}}/api/v1/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### 3. Обновление токена (через JSON)
+POST {{baseUrl}}/api/v1/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### 4. Обновление токена (через Cookie)
+POST {{baseUrl}}/api/v1/refresh
+Content-Type: application/json
+Cookie: refresh_token={{refreshToken}}
+
+### 5. Получение профиля пользователя
+GET {{baseUrl}}/api/v1/profile
+Authorization: Bearer {{accessToken}}
+
+### 6. Выход из системы
+POST {{baseUrl}}/api/v1/logout
+Content-Type: application/json
+Cookie: refresh_token={{refreshToken}}
+
+### 7. Тест с неверными учетными данными
+POST {{baseUrl}}/api/v1/login
+Content-Type: application/json
+
+{
+  "email": "wrong@example.com",
+  "password": "wrongpassword"
+}
+
+### 8. Тест с истекшим токеном
+GET {{baseUrl}}/api/v1/profile
+Authorization: Bearer expired_token_here
+
+### 9. Тест валидации - короткий пароль
+POST {{baseUrl}}/api/v1/register
+Content-Type: application/json
+
+{
+  "username": "test",
+  "email": "test2@example.com",
+  "password": "123"
+}
+
+### 10. Тест валидации - неверный email
+POST {{baseUrl}}/api/v1/register
+Content-Type: application/json
+
+{
+  "username": "testuser2",
+  "email": "invalid-email",
+  "password": "password123"
+}
+
+### 11. Создание нового чата
+POST {{baseUrl}}/api/v1/chats
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "ai_model": "gpt-4",
+  "title": "Мой первый чат"
+}
+
+### 12. Получение списка чатов
+GET {{baseUrl}}/api/v1/chats
+Authorization: Bearer {{accessToken}}
+
+### 13. Получение конкретного чата
+GET {{baseUrl}}/api/v1/chats/1
+Authorization: Bearer {{accessToken}}
+
+### 14. Отправка сообщения в чат
+POST {{baseUrl}}/api/v1/chats/1/messages
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "content": "Привет! Как дела?"
+}
+
+### 15. Получение истории сообщений чата
+GET {{baseUrl}}/api/v1/chats/1/messages
+Authorization: Bearer {{accessToken}}
+
+### 16. Удаление чата
+DELETE {{baseUrl}}/api/v1/chats/1
+Authorization: Bearer {{accessToken}}
+
