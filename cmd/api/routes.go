@@ -24,6 +24,7 @@ func (app *application) initializeRoutes() http.Handler {
 			chats.POST("", app.handleCreateChat)
 			chats.GET("", app.handleGetChats)
 			chats.GET("/:id", app.handleGetChat)
+			chats.PUT("/:id/title", app.handleUpdateChatTitle)
 			chats.DELETE("/:id", app.handleDeleteChat)
 			chats.POST("/:id/messages", app.handleCreateMessage)
 			chats.GET("/:id/messages", app.handleGetMessages)

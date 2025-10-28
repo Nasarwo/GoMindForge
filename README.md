@@ -1,5 +1,15 @@
 # GoMindForge
 
+AI-чат приложение на Go с поддержкой множества провайдеров через OpenRouter API.
+
+**Особенности:**
+- 🤖 Интеграция с DeepSeek через OpenRouter (по умолчанию)
+- 🔐 JWT аутентификация с refresh токенами
+- 💬 Создание и управление чатами
+- 📝 Переименование чатов
+- 🗄️ SQLite база данных
+- 📊 Структурированное логирование
+
 ### Требования
 - Go 1.25.3 или выше
 - SQLite3
@@ -19,12 +29,13 @@ go mod download
 
 3. Создайте файл `.env`:
 ```env
-PORT=5000
+PORT=8080
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 LOG_LEVEL=info
 LOG_FORMAT=json
 
-# AI провайдеры (временно только эти)
+# AI провайдеры
+OPENROUTER_API_KEY=sk-or-v1-your-openrouter-api-key-here
 DEEPSEEK_API_KEY=sk-your-deepseek-api-key-here
 GROK_API_KEY=your-grok-api-key-here
 ```
@@ -39,7 +50,7 @@ go run cmd/migrate/main.go up
 air
 ```
 
-Сервер будет доступен на `http://localhost:5000`
+Сервер будет доступен на `http://localhost:8080`
 
 ## 📋 API Endpoints
 
@@ -144,8 +155,7 @@ Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "ai_model": "deepseek-chat",
-  "title": "Мой первый чат"
+  "ai_model": "deepseek-chat"
 }
 ```
 
@@ -155,11 +165,13 @@ Content-Type: application/json
   "id": 1,
   "user_id": 1,
   "ai_model": "deepseek-chat",
-  "title": "Мой первый чат",
+  "title": "Новый чат",
   "created_at": "2024-01-01T12:00:00Z",
   "updated_at": "2024-01-01T12:00:00Z"
 }
 ```
+
+> **Примечание:** Все новые чаты создаются с названием "Новый чат". Название можно изменить отдельно через API переименования.
 
 #### Получение списка чатов
 ```http
@@ -185,6 +197,24 @@ Authorization: Bearer <access_token>
 ```http
 GET /api/v1/chats/1
 Authorization: Bearer <access_token>
+```
+
+#### Переименование чата
+```http
+PUT /api/v1/chats/1/title
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "title": "Новое название чата"
+}
+```
+
+**Ответ:**
+```json
+{
+  "message": "chat title updated successfully"
+}
 ```
 
 #### Удаление чата
@@ -255,7 +285,14 @@ Authorization: Bearer <access_token>
 
 ## 🤖 Поддерживаемые AI провайдеры
 
-### DeepSeek
+### OpenRouter (рекомендуется, используется по умолчанию)
+- **Модель по умолчанию:** `deepseek/deepseek-chat`
+- **Получение API ключа:** https://openrouter.ai/
+- **Переменная окружения:** `OPENROUTER_API_KEY`
+- **Преимущества:** Доступ к множеству моделей через единый API, включая DeepSeek
+- **Статус:** Активно используется в проекте
+
+### DeepSeek (прямое подключение)
 - **Модель по умолчанию:** `deepseek-chat`
 - **Получение API ключа:** https://platform.deepseek.com/
 - **Переменная окружения:** `DEEPSEEK_API_KEY`
@@ -271,10 +308,11 @@ Authorization: Bearer <access_token>
 
 | Переменная | Описание | По умолчанию |
 |-----------|----------|--------------|
-| `PORT` | Порт сервера | `5000` |
+| `PORT` | Порт сервера | `8080` |
 | `JWT_SECRET` | Секретный ключ для JWT | `some-default-secret` |
 | `LOG_LEVEL` | Уровень логирования (debug/info/warn/error) | `info` |
 | `LOG_FORMAT` | Формат логов (json/text) | `json` |
+| `OPENROUTER_API_KEY` | API ключ OpenRouter (рекомендуется) | - |
 | `DEEPSEEK_API_KEY` | API ключ DeepSeek | - |
 | `GROK_API_KEY` | API ключ Grok | - |
 
@@ -284,7 +322,7 @@ Authorization: Bearer <access_token>
 
 ```bash
 # 1. Регистрация
-curl -X POST http://localhost:5000/api/v1/register \
+curl -X POST http://localhost:8080/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -295,30 +333,37 @@ curl -X POST http://localhost:5000/api/v1/register \
 # Сохраните access_token из ответа
 ACCESS_TOKEN="your_access_token_here"
 
-# 2. Создание чата
-curl -X POST http://localhost:5000/api/v1/chats \
+# 2. Создание чата (автоматически создается с названием "Новый чат")
+curl -X POST http://localhost:8080/api/v1/chats \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "ai_model": "deepseek-chat",
-    "title": "Тестовый чат"
+    "ai_model": "deepseek-chat"
   }'
 
-# 3. Отправка сообщения
-curl -X POST http://localhost:5000/api/v1/chats/1/messages \
+# 3. Переименование чата
+curl -X PUT http://localhost:8080/api/v1/chats/1/title \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Мой тестовый чат"
+  }'
+
+# 4. Отправка сообщения
+curl -X POST http://localhost:8080/api/v1/chats/1/messages \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "content": "Привет! Как дела?"
   }'
 
-# 4. Получение истории
-curl -X GET http://localhost:5000/api/v1/chats/1/messages \
+# 5. Получение истории сообщений
+curl -X GET http://localhost:8080/api/v1/chats/1/messages \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# 5. Обновление токена
+# 6. Обновление токена
 REFRESH_TOKEN="your_refresh_token_here"
-curl -X POST http://localhost:5000/api/v1/refresh \
+curl -X POST http://localhost:8080/api/v1/refresh \
   -H "Content-Type: application/json" \
   -d "{
     \"refresh_token\": \"$REFRESH_TOKEN\"
@@ -364,8 +409,10 @@ go run cmd/migrate/main.go down
   "msg": "AI response saved",
   "chat_id": 1,
   "message_id": 42,
-  "model": "deepseek-chat",
-  "tokens": 150
+  "model": "deepseek/deepseek-chat",
+  "tokens": 150,
+  "prompt_tokens": 25,
+  "completion_tokens": 125
 }
 ```
 

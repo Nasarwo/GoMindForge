@@ -12,7 +12,6 @@ import (
 
 type createChatRequest struct {
 	AIModel string `json:"ai_model" binding:"required"`
-	Title   string `json:"title,omitempty"`
 }
 
 type chatResponse struct {
@@ -22,6 +21,10 @@ type chatResponse struct {
 	Title     string `json:"title"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+}
+
+type updateChatTitleRequest struct {
+	Title string `json:"title" binding:"required"`
 }
 
 type createMessageRequest struct {
@@ -61,7 +64,7 @@ func (app *application) handleCreateChat(c *gin.Context) {
 		return
 	}
 
-	chat, err := app.models.Chats.Create(userID.(int), req.AIModel, req.Title)
+	chat, err := app.models.Chats.Create(userID.(int), req.AIModel, "Новый чат")
 	if err != nil {
 		app.logger.Error("Error creating chat", "error", err)
 		internalErrorResponse(c, err)
@@ -223,16 +226,16 @@ func (app *application) processAIResponse(chatID int, aiModel string, lastUserMe
 	// Получаем AI провайдера на основе модели чата
 	providerName := strings.ToLower(aiModel)
 	if providerName == "" {
-		providerName = "deepseek" // По умолчанию DeepSeek
+		providerName = "openrouter" // По умолчанию OpenRouter
 	}
 
 	// Маппинг названий моделей на провайдеров
 	if strings.Contains(providerName, "deepseek") || strings.Contains(providerName, "deep-seek") {
-		providerName = "deepseek"
+		providerName = "openrouter" // Используем OpenRouter для DeepSeek
 	} else if strings.Contains(providerName, "grok") {
 		providerName = "grok"
 	} else {
-		providerName = "deepseek" // По умолчанию
+		providerName = "openrouter" // По умолчанию OpenRouter
 	}
 
 	provider, err := app.aiProviderFactory.Get(providerName)
@@ -353,5 +356,53 @@ func (app *application) handleDeleteChat(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "chat deleted successfully",
+	})
+}
+
+// handleUpdateChatTitle обновляет название чата
+func (app *application) handleUpdateChatTitle(c *gin.Context) {
+	userID, apiErr := getUserIDFromContext(c)
+	if apiErr != nil {
+		errorResponse(c, apiErr)
+		return
+	}
+
+	chatID, apiErr := getChatIDFromParam(c)
+	if apiErr != nil {
+		errorResponse(c, apiErr)
+		return
+	}
+
+	_, apiErr = app.validateChatOwnership(c, chatID, userID)
+	if apiErr != nil {
+		errorResponse(c, apiErr)
+		return
+	}
+
+	var req updateChatTitleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		validationErrorResponse(c, err)
+		return
+	}
+
+	// Проверяем, что название не пустое
+	if strings.TrimSpace(req.Title) == "" {
+		errorResponse(c, &APIError{
+			Status:  400,
+			Message: "title cannot be empty",
+			Code:    "VALIDATION_ERROR",
+		})
+		return
+	}
+
+	// Обновляем название чата
+	if err := app.models.Chats.UpdateTitle(chatID, strings.TrimSpace(req.Title)); err != nil {
+		app.logger.Error("Error updating chat title", "error", err, "chat_id", chatID)
+		internalErrorResponse(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "chat title updated successfully",
 	})
 }
