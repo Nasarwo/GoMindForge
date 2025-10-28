@@ -2,10 +2,10 @@
 # Многоэтапная сборка для оптимизации размера образа
 
 # Этап 1: Сборка приложения
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25.3-alpine AS builder
 
 # Устанавливаем необходимые пакеты
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -44,6 +44,9 @@ COPY --from=builder /app/cmd/migrate/migrations ./migrations
 # Создаем директорию для базы данных
 RUN mkdir -p /app/data && \
     chown -R appuser:appgroup /app
+
+# Создаем символическую ссылку для базы данных
+RUN ln -sf /app/data/data.db /app/data.db
 
 # Переключаемся на непривилегированного пользователя
 USER appuser

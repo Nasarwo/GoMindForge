@@ -16,7 +16,11 @@ func main() {
 	}
 	direction := os.Args[1]
 
-	db, err := sql.Open("sqlite3", "./data.db")
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "./data.db"
+	}
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
