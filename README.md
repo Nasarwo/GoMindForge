@@ -18,7 +18,7 @@ AI-чат приложение на Go с поддержкой множеств�
 
 1. Клонируйте репозиторий:
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Nasarwo/GoMindForge.git
 cd GoMindForge
 ```
 
