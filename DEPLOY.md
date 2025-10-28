@@ -1,5 +1,14 @@
 # 🚀 Инструкция по деплою GoMindForge в продакшен
 
+## 🌐 Демо сервер
+
+**Рабочий сервер:** `http://94.103.91.136:8080/api/v1`
+
+### Быстрый тест:
+```bash
+curl http://94.103.91.136:8080/api/v1/profile
+```
+
 ## 📋 Предварительные требования
 
 ### На сервере должно быть установлено:
@@ -7,6 +16,7 @@
 - **Docker Compose** (версия 2.0+)
 - **Git** (для клонирования репозитория)
 - **curl** (для проверки здоровья)
+- **Go 1.25.3+** (для миграций)
 
 ### Проверка установки:
 ```bash
@@ -14,6 +24,7 @@ docker --version
 docker-compose --version
 git --version
 curl --version
+go version
 ```
 
 ## 🔧 Подготовка к деплою
@@ -32,6 +43,15 @@ sudo usermod -aG docker $USER
 # Устанавливаем Docker Compose
 sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
+
+# Устанавливаем Go 1.25.3
+wget https://go.dev/dl/go1.25.3.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.25.3.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Устанавливаем зависимости для компиляции
+sudo apt install -y gcc sqlite3 libsqlite3-dev
 
 # Перезагружаемся для применения изменений группы
 sudo reboot
@@ -84,19 +104,49 @@ nano nginx.prod.conf
 
 ## 🚀 Деплой
 
-### Вариант 1: Простой деплой (только API)
+### Вариант 1: Автоматический деплой (рекомендуется)
 
 ```bash
-# Запускаем деплой
+# Включаем BuildKit для быстрой сборки
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Запускаем автоматический деплой
 ./scripts/deploy.sh
 
 # Проверяем статус
 docker-compose -f docker-compose.prod.yml ps
 ```
 
-### Вариант 2: Деплой с Nginx (рекомендуется)
+### Вариант 2: Ручной деплой
 
 ```bash
+# Включаем BuildKit
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Создаем необходимые директории
+mkdir -p ssl logs/nginx
+
+# Запускаем миграции локально
+CGO_ENABLED=1 go run cmd/migrate/main.go up
+
+# Собираем и запускаем контейнеры
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+
+# Копируем базу данных в Docker volume
+docker run --rm -v gomindforge_mindforge_data:/app/data -v $(pwd):/workspace alpine sh -c "cp /workspace/data.db /app/data/data.db && chown 1001:1001 /app/data/data.db"
+
+# Проверяем статус
+docker-compose -f docker-compose.prod.yml ps
+```
+
+### Вариант 3: Деплой с Nginx (для продакшена)
+
+```bash
+# Настройте SSL сертификаты в директории ssl/
+# Отредактируйте nginx.prod.conf с вашим доменом
+
 # Запускаем с Nginx
 docker-compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 
@@ -119,6 +169,23 @@ docker-compose -f docker-compose.prod.yml ps
 ```bash
 # Проверяем здоровье API
 curl http://localhost:8080/api/v1/profile
+
+# Тест регистрации пользователя
+curl -X POST http://localhost:8080/api/v1/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+
+# Тест входа в систему
+curl -X POST http://localhost:8080/api/v1/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123"
+  }'
 
 # Или через Nginx (если настроен)
 curl https://your-domain.com/api/v1/profile

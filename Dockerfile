@@ -19,8 +19,11 @@ RUN go mod download
 # Копируем исходный код
 COPY . .
 
-# Собираем приложение
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
+# Собираем приложение с оптимизациями
+RUN CGO_ENABLED=1 GOOS=linux go build \
+    -ldflags="-w -s" \
+    -trimpath \
+    -o main ./cmd/api
 
 # Этап 2: Финальный образ
 FROM alpine:latest

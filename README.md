@@ -9,25 +9,52 @@ AI-чат приложение на Go с поддержкой множеств�
 - 📝 Переименование чатов
 - 🗄️ SQLite база данных
 - 📊 Структурированное логирование
+- 🐳 Docker контейнеризация
+- 🚀 Готов к продакшену
 
-### Требования
-- Go 1.25.3 или выше
-- SQLite3
+## 🌐 Демо
 
-### Установка
+**Рабочий сервер:** `http://94.103.91.136:8080/api/v1`
 
-1. Клонируйте репозиторий:
+### Быстрый тест API:
+
+```bash
+# Регистрация пользователя
+curl -X POST http://94.103.91.136:8080/api/v1/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "email": "test@example.com", 
+    "password": "password123"
+  }'
+
+# Вход в систему
+curl -X POST http://94.103.91.136:8080/api/v1/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+📖 **Подробная документация демо:** [LIVE_DEMO.md](LIVE_DEMO.md)
+
+## 🚀 Быстрый старт
+
+### Локальная разработка
+
+1. **Клонируйте репозиторий:**
 ```bash
 git clone https://github.com/Nasarwo/GoMindForge.git
 cd GoMindForge
 ```
 
-2. Установите зависимости:
+2. **Установите зависимости:**
 ```bash
 go mod download
 ```
 
-3. Создайте файл `.env`:
+3. **Создайте файл `.env`:**
 ```env
 PORT=8080
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
@@ -40,15 +67,51 @@ DEEPSEEK_API_KEY=sk-your-deepseek-api-key-here
 GROK_API_KEY=your-grok-api-key-here
 ```
 
-4. Запустите миграции:
+4. **Запустите миграции:**
 ```bash
-go run cmd/migrate/main.go up
+CGO_ENABLED=1 go run cmd/migrate/main.go up
 ```
 
-5. Запустите сервер:
+5. **Запустите сервер:**
 ```bash
 air
 ```
+
+### Docker развертывание
+
+1. **Настройте переменные окружения:**
+```bash
+cp env.prod.example .env.prod
+nano .env.prod  # Отредактируйте переменные
+```
+
+2. **Запустите с Docker:**
+```bash
+# Включите BuildKit для быстрой сборки
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Соберите и запустите
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+```
+
+3. **Проверьте работу:**
+```bash
+curl http://localhost:8080/api/v1/profile
+```
+
+## 📋 Требования
+
+### Для разработки:
+- Go 1.25.3 или выше
+- SQLite3
+- Air (для hot-reload)
+
+### Для продакшена:
+- Docker 20.10+
+- Docker Compose 2.0+
+- Минимум 1GB RAM
+- 10GB свободного места
 
 Сервер будет доступен на `http://localhost:8080`
 
@@ -321,8 +384,11 @@ Authorization: Bearer <access_token>
 ### Полный цикл работы
 
 ```bash
+# Базовый URL (замените на ваш сервер)
+BASE_URL="http://94.103.91.136:8080/api/v1"
+
 # 1. Регистрация
-curl -X POST http://localhost:8080/api/v1/register \
+curl -X POST $BASE_URL/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -334,7 +400,7 @@ curl -X POST http://localhost:8080/api/v1/register \
 ACCESS_TOKEN="your_access_token_here"
 
 # 2. Создание чата (автоматически создается с названием "Новый чат")
-curl -X POST http://localhost:8080/api/v1/chats \
+curl -X POST $BASE_URL/chats \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -342,7 +408,7 @@ curl -X POST http://localhost:8080/api/v1/chats \
   }'
 
 # 3. Переименование чата
-curl -X PUT http://localhost:8080/api/v1/chats/1/title \
+curl -X PUT $BASE_URL/chats/1/title \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -350,7 +416,7 @@ curl -X PUT http://localhost:8080/api/v1/chats/1/title \
   }'
 
 # 4. Отправка сообщения
-curl -X POST http://localhost:8080/api/v1/chats/1/messages \
+curl -X POST $BASE_URL/chats/1/messages \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -358,16 +424,23 @@ curl -X POST http://localhost:8080/api/v1/chats/1/messages \
   }'
 
 # 5. Получение истории сообщений
-curl -X GET http://localhost:8080/api/v1/chats/1/messages \
+curl -X GET $BASE_URL/chats/1/messages \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 
 # 6. Обновление токена
 REFRESH_TOKEN="your_refresh_token_here"
-curl -X POST http://localhost:8080/api/v1/refresh \
+curl -X POST $BASE_URL/refresh \
   -H "Content-Type: application/json" \
   -d "{
     \"refresh_token\": \"$REFRESH_TOKEN\"
   }"
+```
+
+### Локальная разработка
+
+```bash
+# Для локальной разработки используйте localhost
+BASE_URL="http://localhost:8080/api/v1"
 ```
 
 ## 🗄️ База данных
@@ -416,6 +489,47 @@ go run cmd/migrate/main.go down
 }
 ```
 
+## 🚀 Развертывание в продакшене
+
+### Автоматическое развертывание
+
+```bash
+# Настройте переменные окружения
+cp env.prod.example .env.prod
+nano .env.prod  # Отредактируйте переменные
+
+# Запустите автоматический деплой
+./scripts/deploy.sh
+```
+
+### Ручное развертывание
+
+```bash
+# 1. Подготовка
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# 2. Сборка и запуск
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+
+# 3. Проверка
+docker-compose -f docker-compose.prod.yml ps
+curl http://localhost:8080/api/v1/profile
+```
+
+### Мониторинг
+
+```bash
+# Проверка статуса
+./scripts/monitor.sh
+
+# Просмотр логов
+docker-compose -f docker-compose.prod.yml logs -f mindforge-api
+
+# Обновление приложения
+./scripts/update.sh
+```
+
 ## 🛠️ Разработка
 
 ### Структура проекта
@@ -429,7 +543,9 @@ GoMindForge/
 │   ├── ai/            # AI провайдеры
 │   ├── database/      # Модели БД
 │   └── env/           # Работа с переменными окружения
-├── go.mod
+├── scripts/           # Скрипты развертывания
+├── docker-compose.prod.yml  # Продакшен конфигурация
+├── Dockerfile         # Docker образ
 └── README.md
 ```
 
@@ -442,6 +558,13 @@ air
 
 Конфигурация Air находится в `.air.toml`
 
+## 📚 Документация
+
+- **[LIVE_DEMO.md](LIVE_DEMO.md)** - Демо сервер и примеры использования
+- **[DEPLOY.md](DEPLOY.md)** - Подробная инструкция по развертыванию
+- **[DOCKER.md](DOCKER.md)** - Docker конфигурация и команды
+- **[DOCUMENTATION.md](DOCUMENTATION.md)** - Полная техническая документация
+
 ## 📄 Лицензия
 
 MIT
@@ -452,5 +575,8 @@ Pull requests приветствуются! Для крупных изменен
 
 ## 📞 Поддержка
 
-Если у вас возникли вопросы или проблемы, создайте issue в репозитории.
+Если у вас возникли вопросы или проблемы:
+1. Проверьте [демо сервер](http://94.103.91.136:8080/api/v1)
+2. Изучите документацию выше
+3. Создайте issue в репозитории
 

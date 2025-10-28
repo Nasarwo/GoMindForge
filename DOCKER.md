@@ -1,5 +1,14 @@
 # 🐳 Docker Quick Start Guide
 
+## 🌐 Демо сервер
+
+**Рабочий сервер:** `http://94.103.91.136:8080/api/v1`
+
+### Быстрый тест:
+```bash
+curl http://94.103.91.136:8080/api/v1/profile
+```
+
 ## Быстрый старт
 
 ### 1. Локальная разработка
@@ -8,17 +17,40 @@
 ./scripts/dev.sh
 ```
 
-### 2. Продакшен деплой
+### 2. Продакшен деплой (оптимизированный)
 ```bash
+# Включите BuildKit для быстрой сборки
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 # Настройка переменных
 cp env.prod.example .env.prod
 nano .env.prod  # Отредактируйте переменные
 
-# Деплой
+# Автоматический деплой
 ./scripts/deploy.sh
 ```
 
-### 3. Мониторинг
+### 3. Ручной деплой
+```bash
+# Включите BuildKit
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Создайте необходимые директории
+mkdir -p ssl logs/nginx
+
+# Запустите миграции локально
+CGO_ENABLED=1 go run cmd/migrate/main.go up
+
+# Соберите и запустите
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+
+# Скопируйте базу данных в Docker volume
+docker run --rm -v gomindforge_mindforge_data:/app/data -v $(pwd):/workspace alpine sh -c "cp /workspace/data.db /app/data/data.db && chown 1001:1001 /app/data/data.db"
+```
+
+### 4. Мониторинг
 ```bash
 # Проверка статуса
 ./scripts/monitor.sh
@@ -27,7 +59,7 @@ nano .env.prod  # Отредактируйте переменные
 docker-compose -f docker-compose.prod.yml logs -f mindforge-api
 ```
 
-### 4. Обновление
+### 5. Обновление
 ```bash
 # Обновление приложения
 ./scripts/update.sh
@@ -75,6 +107,19 @@ docker system prune -f
 
 # Просмотр использования ресурсов
 docker stats
+
+# Быстрая сборка с BuildKit
+export DOCKER_BUILDKIT=1
+docker-compose -f docker-compose.prod.yml build --no-cache --parallel
+
+# Проверка логов в реальном времени
+docker-compose -f docker-compose.prod.yml logs -f mindforge-api
+
+# Вход в контейнер для отладки
+docker exec -it gomindforge-mindforge-api-1 sh
+
+# Проверка размера образов
+docker images | grep gomindforge
 ```
 
 ## Безопасность
