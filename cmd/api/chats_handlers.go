@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"mindforge/internal/ai"
 
@@ -60,6 +61,27 @@ func (app *application) handleCreateChat(c *gin.Context) {
 			Status:  400,
 			Message: "ai_model is required",
 			Code:    "VALIDATION_ERROR",
+		})
+		return
+	}
+
+	// Валидируем, что провайдер для указанной модели существует
+	providerName := strings.ToLower(req.AIModel)
+	if strings.Contains(providerName, "deepseek") || strings.Contains(providerName, "deep-seek") {
+		providerName = "openrouter"
+	} else if strings.Contains(providerName, "grok") {
+		providerName = "grok"
+	} else {
+		providerName = "openrouter" // По умолчанию OpenRouter
+	}
+
+	_, err := app.aiProviderFactory.Get(providerName)
+	if err != nil {
+		app.logger.Warn("Invalid AI model/provider", "model", req.AIModel, "provider", providerName, "error", err)
+		errorResponse(c, &APIError{
+			Status:  400,
+			Message: "invalid ai_model or provider not available",
+			Code:    "INVALID_AI_MODEL",
 		})
 		return
 	}
@@ -211,11 +233,27 @@ func (app *application) handleCreateMessage(c *gin.Context) {
 	})
 
 	// Обработка AI ответа в фоне (горутина)
-	go app.processAIResponse(chatID, chat.AIModel, userMessage.ID)
+	go func() {
+		// Обработка паник в горутине
+		defer func() {
+			if r := recover(); r != nil {
+				app.logger.Error("Panic in processAIResponse",
+					"error", r,
+					"chat_id", chatID,
+					"ai_model", chat.AIModel,
+				)
+			}
+		}()
+		app.processAIResponse(chatID, chat.AIModel, userMessage.ID)
+	}()
 }
 
 // processAIResponse обрабатывает ответ AI в фоне
 func (app *application) processAIResponse(chatID int, aiModel string, lastUserMessageID int) {
+	// Создаем контекст с таймаутом (максимум 2 минуты на обработку)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
 	// Получаем историю сообщений для контекста
 	history, err := app.models.Messages.GetByChatID(chatID)
 	if err != nil {
@@ -259,10 +297,14 @@ func (app *application) processAIResponse(chatID int, aiModel string, lastUserMe
 		Messages: aiMessages,
 	}
 
-	ctx := context.Background()
 	aiResp, err := provider.Chat(ctx, aiReq)
 	if err != nil {
-		app.logger.Error("Error calling AI provider", "error", err, "chat_id", chatID, "provider", providerName)
+		// Проверяем, не истек ли контекст
+		if ctx.Err() == context.DeadlineExceeded {
+			app.logger.Error("AI request timeout", "chat_id", chatID, "provider", providerName)
+		} else {
+			app.logger.Error("Error calling AI provider", "error", err, "chat_id", chatID, "provider", providerName)
+		}
 		return
 	}
 

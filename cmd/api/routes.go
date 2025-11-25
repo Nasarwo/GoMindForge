@@ -9,6 +9,9 @@ import (
 func (app *application) initializeRoutes() http.Handler {
 	g := gin.Default()
 
+	// Health check endpoint (не требует аутентификации)
+	g.GET("/health", app.handleHealth)
+
 	v1 := g.Group("/api/v1")
 	{
 		// Аутентификация

@@ -7,6 +7,7 @@ import (
 	"mindforge/internal/database"
 	"mindforge/internal/env"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -16,6 +17,7 @@ import (
 type application struct {
 	port              int
 	jwtSecret         string
+	db                *sql.DB
 	models            database.Models
 	aiProviderFactory *ai.ProviderFactory
 	logger            *slog.Logger
@@ -52,9 +54,27 @@ func main() {
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
-	db, err := sql.Open("sqlite3", "./data.db")
+	// Получаем путь к базе данных из переменной окружения
+	dbPath := env.GetEnvString("DB_PATH", "./data/data.db")
+
+	// Создаем директорию для базы данных, если её нет
+	dbDir := dbPath
+	if lastSlash := strings.LastIndex(dbPath, "/"); lastSlash != -1 {
+		dbDir = dbPath[:lastSlash]
+	} else if lastBackslash := strings.LastIndex(dbPath, "\\"); lastBackslash != -1 {
+		dbDir = dbPath[:lastBackslash]
+	}
+
+	if dbDir != dbPath {
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			logger.Error("Failed to create database directory", "error", err, "path", dbDir)
+			os.Exit(1)
+		}
+	}
+
+	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=1&_journal_mode=WAL")
 	if err != nil {
-		logger.Error("Failed to open database", "error", err)
+		logger.Error("Failed to open database", "error", err, "path", dbPath)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -65,10 +85,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Устанавливаем настройки пула соединений
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// SQLite не поддерживает множественные соединения так же, как другие БД
+	// Но мы все равно устанавливаем разумные лимиты
+	db.SetMaxOpenConns(1) // SQLite работает лучше с одним соединением
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0) // Не ограничиваем время жизни соединения для SQLite
 
 	logger.Info("Database connection established",
 		"max_open_conns", 25,
@@ -78,9 +99,17 @@ func main() {
 	models := database.NewModels(db)
 	aiFactory := ai.NewProviderFactory()
 
+	// JWT_SECRET обязателен для безопасности
+	jwtSecret := env.GetEnvString("JWT_SECRET", "")
+	if jwtSecret == "" {
+		logger.Error("JWT_SECRET environment variable is required")
+		os.Exit(1)
+	}
+
 	app := &application{
 		port:              env.GetEnvInt("PORT", 8080),
-		jwtSecret:         env.GetEnvString("JWT_SECRET", "some-default-secret"),
+		jwtSecret:         jwtSecret,
+		db:                db,
 		models:            models,
 		aiProviderFactory: aiFactory,
 		logger:            logger,

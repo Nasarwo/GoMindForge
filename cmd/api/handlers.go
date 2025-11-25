@@ -332,3 +332,20 @@ func (app *application) handleLogout(c *gin.Context) {
 		"message": "logged out successfully",
 	})
 }
+
+// handleHealth обрабатывает health check запросы
+func (app *application) handleHealth(c *gin.Context) {
+	// Проверяем подключение к базе данных
+	if err := app.db.Ping(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status":  "unhealthy",
+			"message": "database connection failed",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "healthy",
+		"message": "service is running",
+	})
+}
