@@ -12,7 +12,7 @@ curl -X POST https://94.103.91.136:8080/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
-    "email": "test@example.com", 
+    "email": "test@example.com",
     "password": "password123"
   }'
 
@@ -69,10 +69,10 @@ apiClient.interceptors.response.use(
           const response = await axios.post(`${API_BASE_URL}/refresh`, {
             refresh_token: refreshToken,
           });
-          
+
           const { access_token } = response.data;
           await AsyncStorage.setItem('access_token', access_token);
-          
+
           // Повторяем оригинальный запрос
           error.config.headers.Authorization = `Bearer ${access_token}`;
           return apiClient.request(error.config);
@@ -102,12 +102,12 @@ export const authService = {
   async register(userData) {
     const response = await apiClient.post('/register', userData);
     const { access_token, refresh_token, user } = response.data;
-    
+
     await AsyncStorage.multiSet([
       ['access_token', access_token],
       ['refresh_token', refresh_token],
     ]);
-    
+
     return user;
   },
 
@@ -115,12 +115,12 @@ export const authService = {
   async login(email, password) {
     const response = await apiClient.post('/login', { email, password });
     const { access_token, refresh_token, user } = response.data;
-    
+
     await AsyncStorage.multiSet([
       ['access_token', access_token],
       ['refresh_token', refresh_token],
     ]);
-    
+
     return user;
   },
 
@@ -222,11 +222,11 @@ const ChatScreen = ({ route }) => {
     setLoading(true);
     try {
       const response = await chatService.sendMessage(chatId, newMessage);
-      
+
       // Добавляем сообщение пользователя
       setMessages(prev => [...prev, response.user_message]);
       setNewMessage('');
-      
+
       // Обновляем сообщения через несколько секунд для получения ответа AI
       setTimeout(loadMessages, 2000);
     } catch (error) {
@@ -237,7 +237,7 @@ const ChatScreen = ({ route }) => {
   };
 
   const renderMessage = ({ item }) => (
-    <View style={{ 
+    <View style={{
       alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start',
       backgroundColor: item.role === 'user' ? '#007AFF' : '#F0F0F0',
       padding: 10,
@@ -245,8 +245,8 @@ const ChatScreen = ({ route }) => {
       borderRadius: 10,
       maxWidth: '80%'
     }}>
-      <Text style={{ 
-        color: item.role === 'user' ? 'white' : 'black' 
+      <Text style={{
+        color: item.role === 'user' ? 'white' : 'black'
       }}>
         {item.content}
       </Text>
@@ -261,10 +261,10 @@ const ChatScreen = ({ route }) => {
         keyExtractor={(item) => item.id.toString()}
         style={{ flex: 1, padding: 10 }}
       />
-      
-      <View style={{ 
-        flexDirection: 'row', 
-        padding: 10, 
+
+      <View style={{
+        flexDirection: 'row',
+        padding: 10,
         backgroundColor: 'white',
         borderTopWidth: 1,
         borderTopColor: '#E0E0E0'
@@ -273,11 +273,11 @@ const ChatScreen = ({ route }) => {
           value={newMessage}
           onChangeText={setNewMessage}
           placeholder="Введите сообщение..."
-          style={{ 
-            flex: 1, 
-            borderWidth: 1, 
-            borderColor: '#E0E0E0', 
-            borderRadius: 20, 
+          style={{
+            flex: 1,
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+            borderRadius: 20,
             paddingHorizontal: 15,
             paddingVertical: 10
           }}
@@ -374,7 +374,7 @@ const ChatListScreen = ({ navigation }) => {
         renderItem={renderChat}
         keyExtractor={(item) => item.id.toString()}
       />
-      
+
       <TouchableOpacity
         onPress={createNewChat}
         style={{
@@ -526,8 +526,9 @@ Authorization: Bearer <access_token>
 
 ### Grok (xAI)
 - **Модель по умолчанию:** `grok-beta`
-- **Получение API ключа:** https://console.x.ai/
-- **Переменная окружения:** `GROK_API_KEY`
+- **Получение API ключа:** https://console.x.ai/ (бесплатный доступ доступен)
+- **Переменная окружения:** `GROK_API_KEY` или `XAI_API_KEY`
+- **📖 Подробная инструкция:** См. [GROK_SETUP.md](./GROK_SETUP.md)
 
 ## 🔧 Конфигурация
 

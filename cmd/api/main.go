@@ -8,7 +8,6 @@ import (
 	"mindforge/internal/env"
 	"os"
 	"strings"
-	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
@@ -92,8 +91,8 @@ func main() {
 	db.SetConnMaxLifetime(0) // Не ограничиваем время жизни соединения для SQLite
 
 	logger.Info("Database connection established",
-		"max_open_conns", 25,
-		"max_idle_conns", 5,
+		"max_open_conns", 1,
+		"max_idle_conns", 1,
 	)
 
 	models := database.NewModels(db)

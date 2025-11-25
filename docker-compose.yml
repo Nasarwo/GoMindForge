@@ -15,6 +15,7 @@ services:
       - LOG_FORMAT=text
       - GIN_MODE=debug
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GROK_API_KEY=${GROK_API_KEY}
     volumes:
       # Монтируем базу данных для сохранения данных между перезапусками
       - ./data:/app/data

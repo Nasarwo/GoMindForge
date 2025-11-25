@@ -15,6 +15,7 @@ services:
       - LOG_FORMAT=json
       - GIN_MODE=release
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GROK_API_KEY=${GROK_API_KEY}
     volumes:
       # Только база данных, логи не монтируем в продакшене
       - mindforge_data:/app/data
