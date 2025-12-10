@@ -39,10 +39,10 @@ yarn add axios @react-native-async-storage/async-storage
 
 ```javascript
 // api/client.js
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE_URL = 'https://94.103.91.136:8080/api/v1';
+const API_BASE_URL = "https://94.103.91.136:8080/api/v1";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -51,7 +51,7 @@ const apiClient = axios.create({
 
 // Interceptor для добавления токена
 apiClient.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('access_token');
+  const token = await AsyncStorage.getItem("access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -63,7 +63,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      const refreshToken = await AsyncStorage.getItem('refresh_token');
+      const refreshToken = await AsyncStorage.getItem("refresh_token");
       if (refreshToken) {
         try {
           const response = await axios.post(`${API_BASE_URL}/refresh`, {
@@ -71,14 +71,14 @@ apiClient.interceptors.response.use(
           });
 
           const { access_token } = response.data;
-          await AsyncStorage.setItem('access_token', access_token);
+          await AsyncStorage.setItem("access_token", access_token);
 
           // Повторяем оригинальный запрос
           error.config.headers.Authorization = `Bearer ${access_token}`;
           return apiClient.request(error.config);
         } catch (refreshError) {
           // Refresh token недействителен, перенаправляем на логин
-          await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
+          await AsyncStorage.multiRemove(["access_token", "refresh_token"]);
           // Здесь можно добавить навигацию к экрану логина
         }
       }
@@ -94,18 +94,18 @@ export default apiClient;
 
 ```javascript
 // services/authService.js
-import apiClient from '../api/client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from "../api/client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const authService = {
   // Регистрация
   async register(userData) {
-    const response = await apiClient.post('/register', userData);
+    const response = await apiClient.post("/register", userData);
     const { access_token, refresh_token, user } = response.data;
 
     await AsyncStorage.multiSet([
-      ['access_token', access_token],
-      ['refresh_token', refresh_token],
+      ["access_token", access_token],
+      ["refresh_token", refresh_token],
     ]);
 
     return user;
@@ -113,12 +113,12 @@ export const authService = {
 
   // Вход
   async login(email, password) {
-    const response = await apiClient.post('/login', { email, password });
+    const response = await apiClient.post("/login", { email, password });
     const { access_token, refresh_token, user } = response.data;
 
     await AsyncStorage.multiSet([
-      ['access_token', access_token],
-      ['refresh_token', refresh_token],
+      ["access_token", access_token],
+      ["refresh_token", refresh_token],
     ]);
 
     return user;
@@ -127,15 +127,15 @@ export const authService = {
   // Выход
   async logout() {
     try {
-      await apiClient.post('/logout');
+      await apiClient.post("/logout");
     } finally {
-      await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
+      await AsyncStorage.multiRemove(["access_token", "refresh_token"]);
     }
   },
 
   // Получение профиля
   async getProfile() {
-    const response = await apiClient.get('/profile');
+    const response = await apiClient.get("/profile");
     return response.data.user;
   },
 };
@@ -143,18 +143,18 @@ export const authService = {
 
 ```javascript
 // services/chatService.js
-import apiClient from '../api/client';
+import apiClient from "../api/client";
 
 export const chatService = {
   // Создание чата
-  async createChat(aiModel = 'deepseek-chat') {
-    const response = await apiClient.post('/chats', { ai_model: aiModel });
+  async createChat(aiModel = "deepseek-chat") {
+    const response = await apiClient.post("/chats", { ai_model: aiModel });
     return response.data;
   },
 
   // Получение списка чатов
   async getChats() {
-    const response = await apiClient.get('/chats');
+    const response = await apiClient.get("/chats");
     return response.data;
   },
 
@@ -177,7 +177,9 @@ export const chatService = {
 
   // Отправка сообщения
   async sendMessage(chatId, content) {
-    const response = await apiClient.post(`/chats/${chatId}/messages`, { content });
+    const response = await apiClient.post(`/chats/${chatId}/messages`, {
+      content,
+    });
     return response.data;
   },
 
@@ -193,14 +195,21 @@ export const chatService = {
 
 ```javascript
 // components/ChatScreen.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert } from 'react-native';
-import { chatService } from '../services/chatService';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+} from "react-native";
+import { chatService } from "../services/chatService";
 
 const ChatScreen = ({ route }) => {
   const { chatId } = route.params;
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -212,7 +221,7 @@ const ChatScreen = ({ route }) => {
       const messagesData = await chatService.getMessages(chatId);
       setMessages(messagesData);
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось загрузить сообщения');
+      Alert.alert("Ошибка", "Не удалось загрузить сообщения");
     }
   };
 
@@ -224,30 +233,34 @@ const ChatScreen = ({ route }) => {
       const response = await chatService.sendMessage(chatId, newMessage);
 
       // Добавляем сообщение пользователя
-      setMessages(prev => [...prev, response.user_message]);
-      setNewMessage('');
+      setMessages((prev) => [...prev, response.user_message]);
+      setNewMessage("");
 
       // Обновляем сообщения через несколько секунд для получения ответа AI
       setTimeout(loadMessages, 2000);
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      Alert.alert("Ошибка", "Не удалось отправить сообщение");
     } finally {
       setLoading(false);
     }
   };
 
   const renderMessage = ({ item }) => (
-    <View style={{
-      alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start',
-      backgroundColor: item.role === 'user' ? '#007AFF' : '#F0F0F0',
-      padding: 10,
-      margin: 5,
-      borderRadius: 10,
-      maxWidth: '80%'
-    }}>
-      <Text style={{
-        color: item.role === 'user' ? 'white' : 'black'
-      }}>
+    <View
+      style={{
+        alignSelf: item.role === "user" ? "flex-end" : "flex-start",
+        backgroundColor: item.role === "user" ? "#007AFF" : "#F0F0F0",
+        padding: 10,
+        margin: 5,
+        borderRadius: 10,
+        maxWidth: "80%",
+      }}
+    >
+      <Text
+        style={{
+          color: item.role === "user" ? "white" : "black",
+        }}
+      >
         {item.content}
       </Text>
     </View>
@@ -262,13 +275,15 @@ const ChatScreen = ({ route }) => {
         style={{ flex: 1, padding: 10 }}
       />
 
-      <View style={{
-        flexDirection: 'row',
-        padding: 10,
-        backgroundColor: 'white',
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0'
-      }}>
+      <View
+        style={{
+          flexDirection: "row",
+          padding: 10,
+          backgroundColor: "white",
+          borderTopWidth: 1,
+          borderTopColor: "#E0E0E0",
+        }}
+      >
         <TextInput
           value={newMessage}
           onChangeText={setNewMessage}
@@ -276,25 +291,25 @@ const ChatScreen = ({ route }) => {
           style={{
             flex: 1,
             borderWidth: 1,
-            borderColor: '#E0E0E0',
+            borderColor: "#E0E0E0",
             borderRadius: 20,
             paddingHorizontal: 15,
-            paddingVertical: 10
+            paddingVertical: 10,
           }}
         />
         <TouchableOpacity
           onPress={sendMessage}
           disabled={loading}
           style={{
-            backgroundColor: '#007AFF',
+            backgroundColor: "#007AFF",
             borderRadius: 20,
             paddingHorizontal: 20,
             paddingVertical: 10,
-            marginLeft: 10
+            marginLeft: 10,
           }}
         >
-          <Text style={{ color: 'white', fontWeight: 'bold' }}>
-            {loading ? '...' : 'Отправить'}
+          <Text style={{ color: "white", fontWeight: "bold" }}>
+            {loading ? "..." : "Отправить"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -307,9 +322,9 @@ export default ChatScreen;
 
 ```javascript
 // components/ChatListScreen.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { chatService } from '../services/chatService';
+import React, { useState, useEffect } from "react";
+import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
+import { chatService } from "../services/chatService";
 
 const ChatListScreen = ({ navigation }) => {
   const [chats, setChats] = useState([]);
@@ -324,7 +339,7 @@ const ChatListScreen = ({ navigation }) => {
       const chatsData = await chatService.getChats();
       setChats(chatsData);
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось загрузить чаты');
+      Alert.alert("Ошибка", "Не удалось загрузить чаты");
     } finally {
       setLoading(false);
     }
@@ -333,27 +348,27 @@ const ChatListScreen = ({ navigation }) => {
   const createNewChat = async () => {
     try {
       const newChat = await chatService.createChat();
-      setChats(prev => [newChat, ...prev]);
-      navigation.navigate('Chat', { chatId: newChat.id });
+      setChats((prev) => [newChat, ...prev]);
+      navigation.navigate("Chat", { chatId: newChat.id });
     } catch (error) {
-      Alert.alert('Ошибка', 'Не удалось создать чат');
+      Alert.alert("Ошибка", "Не удалось создать чат");
     }
   };
 
   const renderChat = ({ item }) => (
     <TouchableOpacity
-      onPress={() => navigation.navigate('Chat', { chatId: item.id })}
+      onPress={() => navigation.navigate("Chat", { chatId: item.id })}
       style={{
         padding: 15,
         borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0'
+        borderBottomColor: "#E0E0E0",
       }}
     >
-      <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{item.title}</Text>
-      <Text style={{ color: '#666', marginTop: 5 }}>
+      <Text style={{ fontSize: 16, fontWeight: "bold" }}>{item.title}</Text>
+      <Text style={{ color: "#666", marginTop: 5 }}>
         Модель: {item.ai_model}
       </Text>
-      <Text style={{ color: '#999', fontSize: 12, marginTop: 5 }}>
+      <Text style={{ color: "#999", fontSize: 12, marginTop: 5 }}>
         Обновлен: {new Date(item.updated_at).toLocaleDateString()}
       </Text>
     </TouchableOpacity>
@@ -361,7 +376,7 @@ const ChatListScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <Text>Загрузка...</Text>
       </View>
     );
@@ -378,18 +393,20 @@ const ChatListScreen = ({ navigation }) => {
       <TouchableOpacity
         onPress={createNewChat}
         style={{
-          position: 'absolute',
+          position: "absolute",
           bottom: 20,
           right: 20,
-          backgroundColor: '#007AFF',
+          backgroundColor: "#007AFF",
           borderRadius: 30,
           width: 60,
           height: 60,
-          justifyContent: 'center',
-          alignItems: 'center'
+          justifyContent: "center",
+          alignItems: "center",
         }}
       >
-        <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>+</Text>
+        <Text style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>
+          +
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -403,6 +420,7 @@ export default ChatListScreen;
 ### Аутентификация
 
 #### Регистрация пользователя
+
 ```http
 POST /api/v1/register
 Content-Type: application/json
@@ -415,6 +433,7 @@ Content-Type: application/json
 ```
 
 **Ответ:**
+
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -430,6 +449,7 @@ Content-Type: application/json
 ```
 
 #### Вход в систему
+
 ```http
 POST /api/v1/login
 Content-Type: application/json
@@ -441,6 +461,7 @@ Content-Type: application/json
 ```
 
 #### Обновление токена
+
 ```http
 POST /api/v1/refresh
 Content-Type: application/json
@@ -451,6 +472,7 @@ Content-Type: application/json
 ```
 
 #### Получение профиля
+
 ```http
 GET /api/v1/profile
 Authorization: Bearer <access_token>
@@ -459,6 +481,7 @@ Authorization: Bearer <access_token>
 ### Чаты
 
 #### Создание чата
+
 ```http
 POST /api/v1/chats
 Authorization: Bearer <access_token>
@@ -470,12 +493,14 @@ Content-Type: application/json
 ```
 
 #### Получение списка чатов
+
 ```http
 GET /api/v1/chats
 Authorization: Bearer <access_token>
 ```
 
 #### Переименование чата
+
 ```http
 PUT /api/v1/chats/1/title
 Authorization: Bearer <access_token>
@@ -487,6 +512,7 @@ Content-Type: application/json
 ```
 
 #### Удаление чата
+
 ```http
 DELETE /api/v1/chats/1
 Authorization: Bearer <access_token>
@@ -495,6 +521,7 @@ Authorization: Bearer <access_token>
 ### Сообщения
 
 #### Отправка сообщения в чат
+
 ```http
 POST /api/v1/chats/1/messages
 Authorization: Bearer <access_token>
@@ -506,6 +533,7 @@ Content-Type: application/json
 ```
 
 #### Получение истории сообщений
+
 ```http
 GET /api/v1/chats/1/messages
 Authorization: Bearer <access_token>
@@ -514,35 +542,55 @@ Authorization: Bearer <access_token>
 ## 🤖 Поддерживаемые AI провайдеры
 
 ### OpenRouter (рекомендуется, используется по умолчанию)
+
 - **Модель по умолчанию:** `deepseek/deepseek-chat`
 - **Получение API ключа:** https://openrouter.ai/
 - **Переменная окружения:** `OPENROUTER_API_KEY`
 - **Преимущества:** Доступ к множеству моделей через единый API, включая DeepSeek
 
 ### DeepSeek (прямое подключение)
+
 - **Модель по умолчанию:** `deepseek-chat`
 - **Получение API ключа:** https://platform.deepseek.com/
 - **Переменная окружения:** `DEEPSEEK_API_KEY`
 
 ### Grok (xAI)
+
 - **Модель по умолчанию:** `grok-beta`
 - **Получение API ключа:** https://console.x.ai/ (бесплатный доступ доступен)
 - **Переменная окружения:** `GROK_API_KEY` или `XAI_API_KEY`
 - **📖 Подробная инструкция:** См. [GROK_SETUP.md](./GROK_SETUP.md)
 
+### GigaChat
+
+- **Модель по умолчанию:** `GigaChat`
+- **Получение API ключа:** https://developers.sber.ru/gigachat (требуется регистрация)
+- **Переменная окружения:** `GIGACHAT_ACCESS_TOKEN` - Access токен для аутентификации
+- **Доступные модели:** `GigaChat`, `GigaChat-Pro`, `GigaChat-Max`
+- **📖 Подробная инструкция:** См. [GIGACHAT_SETUP.md](./GIGACHAT_SETUP.md)
+
 ## 🔧 Конфигурация
 
 ### Переменные окружения
 
-| Переменная | Описание | По умолчанию |
-|-----------|----------|--------------|
-| `PORT` | Порт сервера | `8080` |
-| `JWT_SECRET` | Секретный ключ для JWT | `some-default-secret` |
-| `LOG_LEVEL` | Уровень логирования (debug/info/warn/error) | `info` |
-| `LOG_FORMAT` | Формат логов (json/text) | `json` |
-| `OPENROUTER_API_KEY` | API ключ OpenRouter (рекомендуется) | - |
-| `DEEPSEEK_API_KEY` | API ключ DeepSeek | - |
-| `GROK_API_KEY` | API ключ Grok | - |
+| Переменная                | Описание                                           | По умолчанию |
+| ------------------------- | -------------------------------------------------- | ------------ |
+| `PORT`                    | Порт сервера                                       | `8080`       |
+| `JWT_SECRET`              | Секретный ключ для JWT (обязательно)               | -            |
+| `LOG_LEVEL`               | Уровень логирования (debug/info/warn/error)        | `info`       |
+| `LOG_FORMAT`              | Формат логов (json/text)                           | `json`       |
+| `DB_HOST`                 | Хост PostgreSQL                                    | `localhost`  |
+| `DB_PORT`                 | Порт PostgreSQL                                    | `5432`       |
+| `DB_USER`                 | Пользователь PostgreSQL                            | `postgres`   |
+| `DB_PASSWORD`             | Пароль PostgreSQL                                  | `postgres`   |
+| `DB_NAME`                 | Имя базы данных                                    | `mindforge`  |
+| `DB_SSLMODE`              | Режим SSL для PostgreSQL (disable/require)         | `disable`    |
+| `OPENROUTER_API_KEY`      | API ключ OpenRouter (рекомендуется)                | -            |
+| `DEEPSEEK_API_KEY`        | API ключ DeepSeek                                  | -            |
+| `GROK_API_KEY`            | API ключ Grok                                      | -            |
+| `GIGACHAT_ACCESS_TOKEN`   | Access токен для GigaChat                          | -            |
+| `AI_MAX_CONTEXT_MESSAGES` | Максимальное количество сообщений в контексте чата | `100`        |
+| `AI_MAX_CONTEXT_TOKENS`   | Максимальное количество токенов в контексте чата   | `32000`      |
 
 ## 📝 Примеры использования cURL
 
@@ -669,14 +717,34 @@ GoMindForge/
 
 ### Миграции базы данных
 
-Проект использует SQLite3. Миграции находятся в `cmd/migrate/migrations/`.
+Проект использует PostgreSQL. Миграции находятся в `cmd/migrate/migrations/`.
+
+**Перед применением миграций убедитесь, что PostgreSQL запущен и настроены переменные окружения:**
 
 ```bash
+# Установите переменные окружения для подключения к PostgreSQL
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASSWORD=postgres
+export DB_NAME=mindforge
+export DB_SSLMODE=disable
+
 # Применить миграции
 go run cmd/migrate/main.go up
 
 # Откатить миграции
 go run cmd/migrate/main.go down
+```
+
+**Или используйте .env файл:**
+
+```bash
+# Создайте .env файл с переменными окружения
+cp env.prod.example .env
+
+# Примените миграции
+go run cmd/migrate/main.go up
 ```
 
 ### Логирование
@@ -686,6 +754,7 @@ go run cmd/migrate/main.go down
 - **Настраиваемый уровень** логирования
 
 Пример лога:
+
 ```json
 {
   "time": "2024-01-01T12:00:00Z",
@@ -703,18 +772,21 @@ go run cmd/migrate/main.go down
 ## 🔒 Безопасность
 
 ### JWT токены
+
 - **Access токены** - 15 минут жизни
 - **Refresh токены** - 7 дней жизни
 - **HTTP-only cookies** для refresh токенов
 - **Secure флаг** для HTTPS
 
 ### Валидация
+
 - Все входные данные валидируются
 - Email нормализация (нижний регистр, trim)
 - Пароли хешируются с bcrypt
 - SQL injection защита через prepared statements
 
 ### Ошибки
+
 - Структурированные ответы об ошибках
 - Не раскрываем внутренние детали в продакшене
 - Логирование всех ошибок для мониторинга
@@ -722,11 +794,13 @@ go run cmd/migrate/main.go down
 ## 📊 Мониторинг и метрики
 
 ### Health Check
+
 ```bash
 curl https://94.103.91.136:8080/health
 ```
 
 ### Логи
+
 ```bash
 # Просмотр логов в реальном времени
 docker-compose -f docker-compose.prod.yml logs -f mindforge-api
@@ -736,6 +810,7 @@ docker-compose -f docker-compose.prod.yml logs mindforge-api | grep ERROR
 ```
 
 ### Метрики
+
 - Время ответа API
 - Количество запросов
 - Использование токенов AI
@@ -744,12 +819,14 @@ docker-compose -f docker-compose.prod.yml logs mindforge-api | grep ERROR
 ## 🚀 Масштабирование
 
 ### Горизонтальное масштабирование
+
 - Stateless архитектура
 - Внешняя база данных (PostgreSQL)
 - Load balancer (Nginx)
 - Кэширование (Redis)
 
 ### Оптимизация
+
 - Connection pooling
 - Graceful shutdown
 - Timeout настройки
@@ -760,21 +837,25 @@ docker-compose -f docker-compose.prod.yml logs mindforge-api | grep ERROR
 ### Устранение неполадок
 
 **Ошибка 401 Unauthorized:**
+
 - Проверьте токен в заголовке Authorization
 - Убедитесь, что токен не истек
 - Попробуйте обновить токен через /refresh
 
 **Ошибка 500 Internal Server Error:**
+
 - Проверьте логи сервера
 - Убедитесь, что база данных доступна
 - Проверьте переменные окружения
 
 **Медленные ответы AI:**
+
 - Проверьте API ключи провайдеров
 - Убедитесь в стабильности интернет-соединения
 - Проверьте лимиты API провайдеров
 
 ### Контакты
+
 - **GitHub Issues:** https://github.com/Nasarwo/GoMindForge/issues
 - **Документация:** Этот README.md
 - **API Base URL:** https://94.103.91.136:8080/api/v1

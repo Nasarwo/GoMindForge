@@ -5,7 +5,7 @@
 FROM golang:1.25.3-alpine AS builder
 
 # Устанавливаем необходимые пакеты
-RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -20,7 +20,7 @@ RUN go mod download
 COPY . .
 
 # Собираем приложение с оптимизациями
-RUN CGO_ENABLED=1 GOOS=linux go build \
+RUN GOOS=linux go build \
     -ldflags="-w -s" \
     -trimpath \
     -o main ./cmd/api
@@ -29,7 +29,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
 FROM alpine:latest
 
 # Устанавливаем необходимые пакеты для runtime
-RUN apk --no-cache add ca-certificates tzdata sqlite
+RUN apk --no-cache add ca-certificates tzdata
 
 # Создаем пользователя для безопасности
 RUN addgroup -g 1001 -S appgroup && \
@@ -44,12 +44,9 @@ COPY --from=builder /app/main .
 # Копируем миграции
 COPY --from=builder /app/cmd/migrate/migrations ./migrations
 
-# Создаем директорию для базы данных
-RUN mkdir -p /app/data && \
+# Создаем директорию для логов
+RUN mkdir -p /app/logs && \
     chown -R appuser:appgroup /app
-
-# Создаем символическую ссылку для базы данных
-RUN ln -sf /app/data/data.db /app/data.db
 
 # Переключаемся на непривилегированного пользователя
 USER appuser

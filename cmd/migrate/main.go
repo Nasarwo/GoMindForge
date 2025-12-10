@@ -2,12 +2,15 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
-	"github.com/golang-migrate/migrate"
-	"github.com/golang-migrate/migrate/database/sqlite3"
-	"github.com/golang-migrate/migrate/source/file"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/joho/godotenv/autoload"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -16,28 +19,57 @@ func main() {
 	}
 	direction := os.Args[1]
 
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./data.db"
+	// Получаем параметры подключения к PostgreSQL из переменных окружения
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
 	}
-	db, err := sql.Open("sqlite3", dbPath)
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "5432"
+	}
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "postgres"
+	}
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbPassword == "" {
+		dbPassword = "postgres"
+	}
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "mindforge"
+	}
+	dbSSLMode := os.Getenv("DB_SSLMODE")
+	if dbSSLMode == "" {
+		dbSSLMode = "disable"
+	}
+
+	// Формируем строку подключения к PostgreSQL
+	dbDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode)
+
+	db, err := sql.Open("postgres", dbDSN)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer db.Close()
 
-	instance, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	// Проверяем подключение
+	if err := db.Ping(); err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fSrc, err := (&file.File{}).Open("cmd/migrate/migrations")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	m, err := migrate.NewWithInstance("file", fSrc, "sqlite3", instance)
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://cmd/migrate/migrations",
+		"postgres",
+		driver,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,10 +79,12 @@ func main() {
 		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 			log.Fatal(err)
 		}
+		log.Println("Migrations applied successfully")
 	case "down":
 		if err := m.Down(); err != nil && err != migrate.ErrNoChange {
 			log.Fatal(err)
 		}
+		log.Println("Migrations rolled back successfully")
 	default:
 		log.Fatal("Invalid direction. Use 'up' or 'down'")
 	}

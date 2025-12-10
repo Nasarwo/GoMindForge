@@ -64,6 +64,17 @@ func (app *application) handleRegister(c *gin.Context) {
 		return
 	}
 
+	// Проверяем, существует ли пользователь с таким username
+	_, err = app.models.Users.GetByUsername(req.Username)
+	if err == nil {
+		errorResponse(c, &APIError{
+			Status:  http.StatusConflict,
+			Message: "user with this username already exists",
+			Code:    "USERNAME_ALREADY_EXISTS",
+		})
+		return
+	}
+
 	// Хешируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {

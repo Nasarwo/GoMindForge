@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"mindforge/internal/ai"
+	"mindforge/internal/database"
+	"mindforge/internal/env"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,11 +27,11 @@ type chatResponse struct {
 }
 
 type updateChatTitleRequest struct {
-	Title string `json:"title" binding:"required"`
+	Title string `json:"title" binding:"required,min=1,max=200"`
 }
 
 type createMessageRequest struct {
-	Content string `json:"content" binding:"required"`
+	Content string `json:"content" binding:"required,min=1,max=10000"`
 }
 
 type messageResponse struct {
@@ -71,6 +73,8 @@ func (app *application) handleCreateChat(c *gin.Context) {
 		providerName = "openrouter"
 	} else if strings.Contains(providerName, "grok") {
 		providerName = "grok"
+	} else if strings.Contains(providerName, "gigachat") {
+		providerName = "gigachat" // GigaChat
 	} else {
 		providerName = "openrouter" // По умолчанию OpenRouter
 	}
@@ -208,8 +212,29 @@ func (app *application) handleCreateMessage(c *gin.Context) {
 		return
 	}
 
+	// Валидация и очистка контента
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		errorResponse(c, &APIError{
+			Status:  400,
+			Message: "message content cannot be empty",
+			Code:    "VALIDATION_ERROR",
+		})
+		return
+	}
+
+	// Ограничение длины контента
+	if len(content) > 10000 {
+		errorResponse(c, &APIError{
+			Status:  400,
+			Message: "message content too long (max 10000 characters)",
+			Code:    "VALIDATION_ERROR",
+		})
+		return
+	}
+
 	// Создаем сообщение пользователя и сразу сохраняем в БД
-	userMessage, err := app.models.Messages.Create(chatID, "user", req.Content)
+	userMessage, err := app.models.Messages.Create(chatID, "user", content)
 	if err != nil {
 		app.logger.Error("Error creating message", "error", err, "chat_id", chatID)
 		internalErrorResponse(c, err)
@@ -249,29 +274,98 @@ func (app *application) handleCreateMessage(c *gin.Context) {
 }
 
 // processAIResponse обрабатывает ответ AI в фоне
+// ВАЖНО: Каждый чат имеет свой изолированный контекст:
+// - История сообщений получается только для конкретного chatID (WHERE chat_id = $1)
+// - Модель AI берется из самого чата (chat.AIModel), а не из запроса
+// - Разные чаты и разные модели не смешиваются
+// - Каждый чат работает со своей собственной историей и своей моделью AI
 func (app *application) processAIResponse(chatID int, aiModel string, lastUserMessageID int) {
 	// Создаем контекст с таймаутом (максимум 2 минуты на обработку)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	// Получаем историю сообщений для контекста
+	// Получаем историю сообщений для контекста (только для этого конкретного чата)
+	// SQL запрос: SELECT ... FROM messages WHERE chat_id = $1
+	// Это гарантирует, что каждый чат имеет свою изолированную историю
 	history, err := app.models.Messages.GetByChatID(chatID)
 	if err != nil {
 		app.logger.Error("Error getting message history", "error", err, "chat_id", chatID)
 		return
 	}
 
+	// Настройки контекста из переменных окружения
+	maxHistoryMessages := env.GetEnvInt("AI_MAX_CONTEXT_MESSAGES", 100)
+	maxContextTokens := env.GetEnvInt("AI_MAX_CONTEXT_TOKENS", 32000) // По умолчанию 32k токенов
+
+	originalCount := len(history)
+	app.logger.Debug("Processing AI response with isolated context",
+		"chat_id", chatID,
+		"ai_model", aiModel,
+		"history_count", originalCount,
+		"max_messages", maxHistoryMessages,
+		"max_tokens", maxContextTokens,
+		"context_isolation", "enabled", // Подтверждение изоляции контекста
+	)
+
+	// Ограничиваем количество сообщений в истории
+	if len(history) > maxHistoryMessages {
+		// Берем последние N сообщений (сохраняем контекст недавних сообщений)
+		history = history[len(history)-maxHistoryMessages:]
+		app.logger.Info("Message history truncated by count",
+			"chat_id", chatID,
+			"original_count", originalCount,
+			"truncated_count", len(history),
+		)
+	}
+
+	// Ограничиваем по токенам (приблизительная оценка: 1 токен ≈ 4 символа)
+	// Более точная оценка: примерно 0.75 токена на слово или 4 символа на токен
+	estimatedTokens := 0
+	truncatedHistory := make([]*database.Message, 0, len(history))
+
+	// Идем с конца истории (последние сообщения важнее) и добавляем сообщения пока не превысим лимит
+	for i := len(history) - 1; i >= 0; i-- {
+		msg := history[i]
+		// Приблизительная оценка токенов: длина контента / 4 + накладные расходы на роль (~5 токенов)
+		msgTokens := len(msg.Content)/4 + 5
+
+		if estimatedTokens+msgTokens > maxContextTokens {
+			// Если добавление этого сообщения превысит лимит, останавливаемся
+			break
+		}
+
+		estimatedTokens += msgTokens
+		truncatedHistory = append([]*database.Message{msg}, truncatedHistory...)
+	}
+
+	if len(truncatedHistory) < len(history) {
+		app.logger.Info("Message history truncated by tokens",
+			"chat_id", chatID,
+			"original_count", originalCount,
+			"truncated_count", len(truncatedHistory),
+			"estimated_tokens", estimatedTokens,
+			"max_tokens", maxContextTokens,
+		)
+		history = truncatedHistory
+	}
+
 	// Получаем AI провайдера на основе модели чата
+	// ВАЖНО: aiModel берется из самого чата (chat.AIModel), сохраненного в БД
+	// Это гарантирует, что каждый чат использует свою модель, даже если у пользователя несколько чатов с разными моделями
 	providerName := strings.ToLower(aiModel)
 	if providerName == "" {
 		providerName = "openrouter" // По умолчанию OpenRouter
 	}
 
 	// Маппинг названий моделей на провайдеров
+	// Каждый чат может использовать свою модель (deepseek-chat, grok-beta, GigaChat и т.д.)
+	// Разные модели не смешиваются между чатами
 	if strings.Contains(providerName, "deepseek") || strings.Contains(providerName, "deep-seek") {
 		providerName = "openrouter" // Используем OpenRouter для DeepSeek
 	} else if strings.Contains(providerName, "grok") {
 		providerName = "grok"
+	} else if strings.Contains(providerName, "gigachat") {
+		providerName = "gigachat" // GigaChat
 	} else {
 		providerName = "openrouter" // По умолчанию OpenRouter
 	}
@@ -290,6 +384,15 @@ func (app *application) processAIResponse(chatID int, aiModel string, lastUserMe
 			Content: msg.Content,
 		}
 	}
+
+	app.logger.Debug("Sending request to AI with isolated context",
+		"chat_id", chatID,
+		"chat_ai_model", aiModel, // Модель, сохраненная в чате
+		"messages_count", len(aiMessages),
+		"provider", providerName,
+		"model", provider.GetDefaultModel(),
+		"context_isolation", "enabled", // Подтверждение изоляции
+	)
 
 	// Отправляем запрос к AI
 	aiReq := ai.ChatRequest{
@@ -318,13 +421,15 @@ func (app *application) processAIResponse(chatID int, aiModel string, lastUserMe
 	// Обновляем время последнего обновления чата
 	app.models.Chats.UpdateUpdatedAt(chatID)
 
-	app.logger.Info("AI response saved",
+	app.logger.Info("AI response saved with isolated context",
 		"chat_id", chatID,
+		"chat_ai_model", aiModel, // Модель чата для подтверждения изоляции
 		"message_id", assistantMessage.ID,
 		"model", aiResp.Model,
 		"tokens", aiResp.Usage.TotalTokens,
 		"prompt_tokens", aiResp.Usage.PromptTokens,
 		"completion_tokens", aiResp.Usage.CompletionTokens,
+		"context_messages_count", len(history), // Количество сообщений в контексте этого чата
 	)
 }
 

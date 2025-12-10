@@ -2,15 +2,16 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"mindforge/internal/ai"
 	"mindforge/internal/database"
 	"mindforge/internal/env"
 	"os"
-	"strings"
+	"time"
 
 	_ "github.com/joho/godotenv/autoload"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
 type application struct {
@@ -53,27 +54,21 @@ func main() {
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
-	// Получаем путь к базе данных из переменной окружения
-	dbPath := env.GetEnvString("DB_PATH", "./data/data.db")
+	// Получаем параметры подключения к PostgreSQL из переменных окружения
+	dbHost := env.GetEnvString("DB_HOST", "localhost")
+	dbPort := env.GetEnvString("DB_PORT", "5432")
+	dbUser := env.GetEnvString("DB_USER", "postgres")
+	dbPassword := env.GetEnvString("DB_PASSWORD", "postgres")
+	dbName := env.GetEnvString("DB_NAME", "mindforge")
+	dbSSLMode := env.GetEnvString("DB_SSLMODE", "disable")
 
-	// Создаем директорию для базы данных, если её нет
-	dbDir := dbPath
-	if lastSlash := strings.LastIndex(dbPath, "/"); lastSlash != -1 {
-		dbDir = dbPath[:lastSlash]
-	} else if lastBackslash := strings.LastIndex(dbPath, "\\"); lastBackslash != -1 {
-		dbDir = dbPath[:lastBackslash]
-	}
+	// Формируем строку подключения к PostgreSQL
+	dbDSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		dbHost, dbPort, dbUser, dbPassword, dbName, dbSSLMode)
 
-	if dbDir != dbPath {
-		if err := os.MkdirAll(dbDir, 0755); err != nil {
-			logger.Error("Failed to create database directory", "error", err, "path", dbDir)
-			os.Exit(1)
-		}
-	}
-
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=1&_journal_mode=WAL")
+	db, err := sql.Open("postgres", dbDSN)
 	if err != nil {
-		logger.Error("Failed to open database", "error", err, "path", dbPath)
+		logger.Error("Failed to open database", "error", err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -84,15 +79,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// SQLite не поддерживает множественные соединения так же, как другие БД
-	// Но мы все равно устанавливаем разумные лимиты
-	db.SetMaxOpenConns(1) // SQLite работает лучше с одним соединением
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(0) // Не ограничиваем время жизни соединения для SQLite
+	// Настраиваем пул соединений для PostgreSQL
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	logger.Info("Database connection established",
-		"max_open_conns", 1,
-		"max_idle_conns", 1,
+		"host", dbHost,
+		"port", dbPort,
+		"database", dbName,
+		"max_open_conns", 25,
+		"max_idle_conns", 5,
 	)
 
 	models := database.NewModels(db)

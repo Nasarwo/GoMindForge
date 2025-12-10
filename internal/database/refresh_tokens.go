@@ -33,7 +33,7 @@ func GenerateSafeToken() (string, error) {
 func (m RefreshTokenModel) Create(userID int, token string, expiresAt time.Time) error {
 	query := `
 		INSERT INTO refresh_tokens (user_id, token, expires_at, created_at)
-		VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`
 
 	_, err := m.DB.Exec(query, userID, token, expiresAt)
 	return err
@@ -44,16 +44,16 @@ func (m RefreshTokenModel) GetByToken(token string) (*RefreshToken, error) {
 	query := `
 		SELECT id, user_id, token, expires_at, created_at
 		FROM refresh_tokens
-		WHERE token = ?`
+		WHERE token = $1`
 
 	var rt RefreshToken
-	var expiresAtStr, createdAtStr sql.NullString
+	var expiresAt, createdAt sql.NullTime
 	err := m.DB.QueryRow(query, token).Scan(
 		&rt.ID,
 		&rt.UserID,
 		&rt.Token,
-		&expiresAtStr,
-		&createdAtStr,
+		&expiresAt,
+		&createdAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -62,18 +62,12 @@ func (m RefreshTokenModel) GetByToken(token string) (*RefreshToken, error) {
 		return nil, err
 	}
 
-	// Парсим timestamps
-	if expiresAtStr.Valid {
-		rt.ExpiresAt, err = scanTime(expiresAtStr.String)
-		if err != nil {
-			return nil, err
-		}
+	// PostgreSQL возвращает time.Time напрямую
+	if expiresAt.Valid {
+		rt.ExpiresAt = expiresAt.Time
 	}
-	if createdAtStr.Valid {
-		rt.CreatedAt, err = scanTime(createdAtStr.String)
-		if err != nil {
-			return nil, err
-		}
+	if createdAt.Valid {
+		rt.CreatedAt = createdAt.Time
 	}
 
 	return &rt, nil
@@ -81,14 +75,14 @@ func (m RefreshTokenModel) GetByToken(token string) (*RefreshToken, error) {
 
 // Delete удаляет refresh token
 func (m RefreshTokenModel) Delete(token string) error {
-	query := `DELETE FROM refresh_tokens WHERE token = ?`
+	query := `DELETE FROM refresh_tokens WHERE token = $1`
 	_, err := m.DB.Exec(query, token)
 	return err
 }
 
 // DeleteByUserID удаляет все refresh tokens пользователя
 func (m RefreshTokenModel) DeleteByUserID(userID int) error {
-	query := `DELETE FROM refresh_tokens WHERE user_id = ?`
+	query := `DELETE FROM refresh_tokens WHERE user_id = $1`
 	_, err := m.DB.Exec(query, userID)
 	return err
 }
