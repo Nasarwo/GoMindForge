@@ -15,13 +15,13 @@ RESTful API для работы с AI моделями (DeepSeek, GigaChat, Qwen
 
 ## 🌐 Продакшен сервер
 
-**API Base URL:** `https://94.103.91.136:8080/api/v1`
+**API Base URL:** `http://45.144.64.27:8080/api/v1`
 
 ### Быстрый тест API:
 
 ```bash
 # Регистрация пользователя
-curl -X POST https://94.103.91.136:8080/api/v1/register \
+curl -X POST http://45.144.64.27:8080/api/v1/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "testuser",
@@ -30,7 +30,7 @@ curl -X POST https://94.103.91.136:8080/api/v1/register \
   }'
 
 # Вход в систему
-curl -X POST https://94.103.91.136:8080/api/v1/login \
+curl -X POST http://45.144.64.27:8080/api/v1/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
@@ -55,7 +55,7 @@ yarn add axios @react-native-async-storage/async-storage
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE_URL = "https://94.103.91.136:8080/api/v1";
+const API_BASE_URL = "http://45.144.64.27:8080/api/v1";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -608,7 +608,7 @@ Authorization: Bearer <access_token>
 
 ```bash
 # Базовый URL (замените на ваш сервер)
-BASE_URL="https://94.103.91.136:8080/api/v1"
+BASE_URL="http://45.144.64.27:8080/api/v1"
 
 # 1. Регистрация
 curl -X POST $BASE_URL/register \
@@ -891,7 +891,7 @@ Air автоматически:
 ### Health Check
 
 ```bash
-curl https://94.103.91.136:8080/health
+curl http://45.144.64.27:8080/health
 ```
 
 ### Логи
@@ -953,7 +953,7 @@ docker-compose -f docker-compose.prod.yml logs mindforge-api | grep ERROR
 
 - **GitHub Issues:** https://github.com/Nasarwo/GoMindForge/issues
 - **Документация:** Этот README.md
-- **API Base URL:** https://94.103.91.136:8080/api/v1
+- **API Base URL:** http://45.144.64.27:8080/api/v1
 
 ## 📄 Лицензия
 
