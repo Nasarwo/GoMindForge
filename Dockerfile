@@ -2,7 +2,7 @@
 # Многоэтапная сборка для оптимизации размера образа
 
 # Этап 1: Сборка приложения
-FROM golang:1.25.3-alpine AS builder
+FROM golang:alpine AS builder
 
 # Устанавливаем необходимые пакеты
 RUN apk add --no-cache git ca-certificates tzdata
@@ -25,11 +25,17 @@ RUN GOOS=linux go build \
     -trimpath \
     -o main ./cmd/api
 
+# Собираем бинарник для миграций
+RUN GOOS=linux go build \
+    -ldflags="-w -s" \
+    -trimpath \
+    -o migrate ./cmd/migrate
+
 # Этап 2: Финальный образ
 FROM alpine:latest
 
-# Устанавливаем необходимые пакеты для runtime
-RUN apk --no-cache add ca-certificates tzdata
+# Устанавливаем необходимые пакеты для runtime (включая wget для healthcheck)
+RUN apk --no-cache add ca-certificates tzdata wget
 
 # Создаем пользователя для безопасности
 RUN addgroup -g 1001 -S appgroup && \
@@ -38,8 +44,9 @@ RUN addgroup -g 1001 -S appgroup && \
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем бинарный файл из этапа сборки
+# Копируем бинарные файлы из этапа сборки
 COPY --from=builder /app/main .
+COPY --from=builder /app/migrate ./migrate
 
 # Копируем миграции
 COPY --from=builder /app/cmd/migrate/migrations ./migrations

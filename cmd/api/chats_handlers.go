@@ -70,13 +70,13 @@ func (app *application) handleCreateChat(c *gin.Context) {
 	// Валидируем, что провайдер для указанной модели существует
 	providerName := strings.ToLower(req.AIModel)
 	if strings.Contains(providerName, "deepseek") || strings.Contains(providerName, "deep-seek") {
-		providerName = "openrouter"
-	} else if strings.Contains(providerName, "grok") {
-		providerName = "grok"
+		providerName = "deepseek" // DeepSeek напрямую
 	} else if strings.Contains(providerName, "gigachat") {
 		providerName = "gigachat" // GigaChat
+	} else if strings.Contains(providerName, "qwen") {
+		providerName = "qwen" // Qwen
 	} else {
-		providerName = "openrouter" // По умолчанию OpenRouter
+		providerName = "deepseek" // По умолчанию DeepSeek
 	}
 
 	_, err := app.aiProviderFactory.Get(providerName)
@@ -354,20 +354,20 @@ func (app *application) processAIResponse(chatID int, aiModel string, lastUserMe
 	// Это гарантирует, что каждый чат использует свою модель, даже если у пользователя несколько чатов с разными моделями
 	providerName := strings.ToLower(aiModel)
 	if providerName == "" {
-		providerName = "openrouter" // По умолчанию OpenRouter
+		providerName = "deepseek" // По умолчанию DeepSeek
 	}
 
 	// Маппинг названий моделей на провайдеров
-	// Каждый чат может использовать свою модель (deepseek-chat, grok-beta, GigaChat и т.д.)
+	// Каждый чат может использовать свою модель (deepseek-chat, GigaChat, qwen и т.д.)
 	// Разные модели не смешиваются между чатами
 	if strings.Contains(providerName, "deepseek") || strings.Contains(providerName, "deep-seek") {
-		providerName = "openrouter" // Используем OpenRouter для DeepSeek
-	} else if strings.Contains(providerName, "grok") {
-		providerName = "grok"
+		providerName = "deepseek" // DeepSeek напрямую
 	} else if strings.Contains(providerName, "gigachat") {
 		providerName = "gigachat" // GigaChat
+	} else if strings.Contains(providerName, "qwen") {
+		providerName = "qwen" // Qwen
 	} else {
-		providerName = "openrouter" // По умолчанию OpenRouter
+		providerName = "deepseek" // По умолчанию DeepSeek
 	}
 
 	provider, err := app.aiProviderFactory.Get(providerName)

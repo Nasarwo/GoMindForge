@@ -1,6 +1,4 @@
 # docker-compose.yml - для локальной разработки
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -37,8 +35,11 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=mindforge
       - DB_SSLMODE=disable
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - GROK_API_KEY=${GROK_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - QWEN_API_KEY=${QWEN_API_KEY}
+      - QWEN_API_BASE_URL=${QWEN_API_BASE_URL}
+      - GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY}
+      - GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID}
     volumes:
       # Монтируем логи для отладки
       - ./logs:/app/logs

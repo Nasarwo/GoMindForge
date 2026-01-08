@@ -1,12 +1,10 @@
 # docker-compose.prod.yml - для продакшена
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
       - POSTGRES_DB=${DB_NAME:-mindforge}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -40,17 +38,20 @@ services:
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_NAME=${DB_NAME:-mindforge}
-      - DB_SSLMODE=disable
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - GROK_API_KEY=${GROK_API_KEY}
+      - DB_SSLMODE=${DB_SSLMODE:-disable}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - QWEN_API_KEY=${QWEN_API_KEY}
+      - QWEN_API_BASE_URL=${QWEN_API_BASE_URL:-}
+      - GIGACHAT_AUTH_KEY=${GIGACHAT_AUTH_KEY}
+      - GIGACHAT_CLIENT_ID=${GIGACHAT_CLIENT_ID}
     depends_on:
       postgres:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider --method=GET http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -64,19 +65,30 @@ services:
           memory: 256M
           cpus: '0.25'
 
-  # Nginx для проксирования и SSL
+  # Nginx для проксирования и SSL (опционально, запускается с профилем nginx)
+  # Запуск: docker-compose -f docker-compose.prod.yml --profile nginx up -d
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-      - ./logs/nginx:/var/log/nginx
+      - type: bind
+        source: ./nginx.prod.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+      - type: bind
+        source: ./ssl
+        target: /etc/nginx/ssl
+        read_only: true
+      - type: bind
+        source: ./logs/nginx
+        target: /var/log/nginx
     depends_on:
       - mindforge-api
     restart: always
+    profiles:
+      - nginx  # Запускается только с профилем nginx: --profile nginx
     deploy:
       resources:
         limits:
@@ -86,3 +98,8 @@ services:
 volumes:
   postgres_data:
     driver: local
+
+networks:
+  default:
+    name: mindforge_network
+    driver: bridge

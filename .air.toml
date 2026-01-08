@@ -4,9 +4,8 @@ tmp_dir = "tmp"
 
 [build]
   args_bin = []
-  bin = "scripts/run-air.bat"
   cmd = "go build -o tmp/main.exe ./cmd/api"
-  full_bin = "scripts\\run-air.bat"
+  entrypoint = ["./tmp/main.exe"]
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []

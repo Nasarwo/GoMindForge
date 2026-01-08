@@ -53,9 +53,8 @@ func NewProviderFactory() *ProviderFactory {
 
 	// Регистрируем провайдеры
 	factory.Register("deepseek", NewDeepSeekProvider())
-	factory.Register("openrouter", NewOpenRouterProvider())
-	factory.Register("grok", NewGrokProvider())
 	factory.Register("gigachat", NewGigaChatProvider())
+	factory.Register("qwen", NewQwenProvider())
 
 	return factory
 }

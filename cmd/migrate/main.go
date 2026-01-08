@@ -65,8 +65,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Путь к миграциям - в Docker контейнере они находятся в ./migrations
+	// В локальной разработке - в ./cmd/migrate/migrations
+	migrationsPath := "./migrations"
+	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+		migrationsPath = "./cmd/migrate/migrations"
+	}
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://cmd/migrate/migrations",
+		fmt.Sprintf("file://%s", migrationsPath),
 		"postgres",
 		driver,
 	)
